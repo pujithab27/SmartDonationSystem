@@ -1,0 +1,10 @@
+[
+  {"id":"single-item","sentence":"I want to donate one backpack in Guntur.","expected":{"itemId":"backpack","quantity":"1","city":"Guntur","address":"","state":"","pincode":"","notes":""}},
+  {"id":"complete-details","sentence":"Donate three shirts. Pickup at twelve Main Road, Guntur, Andhra Pradesh. PIN five two two zero zero one. They are new.","expected":{"itemId":"shirt","quantity":"3","city":"Guntur","state":"Andhra Pradesh","pincode":"522001"},"matches":{"address":"(?:12|twelve).*Main Road","notes":"new"}},
+  {"id":"address-before-quantity","sentence":"Pickup at house number twenty five, Lake Road, Guntur, Andhra Pradesh. PIN five two two zero zero one. I want to donate seven notebooks. They are unused.","expected":{"itemId":"notebook","quantity":"7","city":"Guntur","state":"Andhra Pradesh","pincode":"522001"},"matches":{"address":"(?:25|twenty five).*Lake Road","notes":"unused"}},
+  {"id":"quantity-after-item","sentence":"I have rice to donate. The quantity is ten kilograms. My city is Hyderabad.","expected":{"itemId":"rice","quantity":"10","city":"Hyderabad","state":"","pincode":""}},
+  {"id":"spoken-correction","sentence":"I want to donate five, sorry, three school bags in Vijayawada.","expected":{"itemId":"school-bag","quantity":"3","city":"Vijayawada"}},
+  {"id":"no-quantity","sentence":"I want to donate shirts in Chennai.","expected":{"itemId":"shirt","quantity":"","city":"Chennai","state":"","pincode":""}},
+  {"id":"multiple-items","sentence":"I want to donate two books and three blankets in Guntur.","expected":{"itemId":"","quantity":"","city":"Guntur"},"warning":"one item type"},
+  {"id":"quantity-field","sentence":"One hundred and twenty five.","field":"quantity","expected":{"quantity":"125"}}
+]

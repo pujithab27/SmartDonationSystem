@@ -1,0 +1,58 @@
+.pickup-map-trigger { display: inline-flex; align-items: center; justify-self: start; gap: 7px; width: fit-content; border: 1px solid #e4c7d3; border-radius: 8px; background: #fff8fb; color: #a51c51; padding: 10px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+.location-picker { width: min(850px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #e7e2e5; border-radius: 17px; color: #202936; background: #fff; box-shadow: 0 24px 80px #0004; overflow: auto; }
+.location-picker::backdrop { background: #15151b99; backdrop-filter: blur(3px); }
+.location-picker button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 13px; border: 1px solid #e6dce1; border-radius: 8px; background: #fff; color: #8d2049; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.location-picker button:disabled { opacity: .5; cursor: default; }
+.location-picker :focus-visible { outline: 2px solid #b21f56; outline-offset: 3px; }
+.location-picker-head { display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid #eee7eb; }
+.location-picker-symbol { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 9px; background: #fcecf2; color: #b21f56; }
+.location-picker-head h2 { margin: 0; font-size: 17px; line-height: 1.4; }
+.location-picker-head p { margin: 4px 0 0; font-size: 12px; color: #707680; }
+.location-picker .location-picker-close { margin-left: auto; border: 0; padding: 8px; color: #6f7480; }
+.location-picker-search { display: flex; gap: 8px; padding: 12px 20px; }
+.location-picker-search label { display: flex; align-items: center; flex: 1; gap: 8px; min-width: 0; border: 1px solid #e6e7eb; padding: 0 10px; border-radius: 8px; color: #818793; }
+.location-picker-search input { width: 100%; min-width: 0; min-height: 40px; padding: 8px 0; border: 0; background: transparent; font: inherit; font-size: 12px; }
+.location-picker-results { display: grid; gap: 4px; max-height: 160px; overflow: auto; padding: 0 20px 12px; }
+.location-picker-results button { justify-content: flex-start; text-align: left; color: #303b4d; }
+.location-picker-map-wrap { position: relative; }
+.location-picker-map { height: clamp(230px, 42dvh, 380px); width: 100%; background: #f1f0eb; z-index: 0; }
+.location-picker-hint { position: absolute; top: 12px; right: 12px; z-index: 1; pointer-events: none; border-radius: 20px; padding: 7px 12px; background: #fffffff2; color: #535c65; box-shadow: 0 2px 8px #0002; font-size: 11px; }
+.pickup-map-pin span { display: block; width: 28px; height: 28px; transform: rotate(-45deg); border-radius: 50% 50% 50% 0; border: 3px solid white; background: #b21f56; box-shadow: -2px 2px 6px #0005; }
+.pickup-map-pin span::after { content: ''; position: absolute; width: 8px; height: 8px; top: 7px; left: 7px; border-radius: 50%; background: white; }
+.location-picker-footer { display: flex; align-items: flex-start; gap: 20px; padding: 18px 22px 10px; }
+.location-picker-selection { flex: 1; min-width: 0; }
+.location-picker-selection > strong { display: block; color: #ac2255; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+.location-picker-selection p { margin: 7px 0; font-size: 13px; font-weight: 500; line-height: 1.55; overflow-wrap: anywhere; }
+.location-picker-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.location-picker-tags span { border-radius: 12px; background: #f5f5f7; padding: 4px 8px; font-size: 10px; color: #68707a; }
+.location-picker-selection small { display: block; margin-top: 7px; font-size: 11px; color: #707680; }
+.location-picker-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.location-picker .location-picker-confirm { background: #b21f56; color: #fff; border-color: #b21f56; }
+.location-picker-message { margin: 0; padding: 6px 22px 12px; color: #a12841; font-size: 12px; }
+.location-picker-privacy { margin: 0; padding: 0 22px 14px; font-size: 10px; color: #727680; }
+@media (max-width: 600px) {
+  .location-picker { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 12px; }
+  .location-picker-head { padding: 14px; gap: 8px; }
+  .location-picker-head h2 { font-size: 15px; }
+  .location-picker-search { padding: 10px 14px; flex-wrap: wrap; }
+  .location-picker-search label { flex-basis: calc(100% - 85px); }
+  .location-picker-footer { flex-direction: column; padding: 14px; gap: 12px; }
+  .location-picker-actions { align-self: flex-end; }
+  .location-picker-privacy { padding: 0 14px 12px; }
+  .location-picker-hint { font-size: 10px; padding: 6px 8px; }
+}
+
+.location-picker-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.location-picker-fields .field:first-child { grid-column: 1 / -1; }
+.location-picker-fields input { width: 100%; min-width: 0; }
+@media (max-width: 480px) { .location-picker-fields { grid-template-columns: 1fr; } }
+
+.location-picker-search-area { position: relative; z-index: 3; }
+.location-picker-search-area .location-picker-results { position: absolute; top: calc(100% - 5px); left: 20px; right: 20px; max-height: 260px; padding: 5px; background: white; border: 1px solid #e6dce1; border-radius: 10px; box-shadow: 0 10px 28px #20293626; }
+.location-picker-results button { border: 0; gap: 12px; padding: 10px; width: 100%; }
+.location-picker-results button:hover, .location-picker-results button[aria-selected="true"] { background: #fff0f6; }
+.location-picker-results button > svg { flex-shrink: 0; color: #b21f56; }
+.location-picker-results button span { display: grid; gap: 3px; }
+.location-picker-results strong { font-size: 13px; }
+.location-picker-results small { font-size: 11px; font-weight: 400; color: #697382; }
+.location-suggest-loading { position: absolute; right: 24px; top: 100%; padding: 6px 10px; margin: 0; border-radius: 6px; background: white; font-size: 12px; }

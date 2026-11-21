@@ -1,0 +1,49 @@
+.voice-field { display: block; width: 100%; min-width: 0; flex: 1; }
+.voice-field-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; align-items: start; }
+.voice-field-control > input, .voice-field-control > textarea,
+.field .voice-field-control > input, .field .voice-field-control > textarea,
+.goods-search .voice-field-control > input, .search-field .voice-field-control > input { width: 100%; min-width: 0; padding-right: 12px; }
+.voice-field-control > button.field-microphone { display: grid; place-items: center; align-self: start; min-width: 44px; height: 48px; padding: 0 10px; border: 1px solid #dce4ef; border-radius: 8px; background: #f0edf8; color: #72599d; cursor: pointer; font: inherit; font-size: 12px; }
+.voice-field-control > button.field-microphone:disabled { opacity: .4; cursor: default; }
+.field .voice-field-control > input[type=number], .voice-field-control > input[type=number] { padding-right: 12px; }
+.voice-field.listening button.field-microphone { color: #fff; background: #77569c; }
+.voice-field-control > button.field-microphone:focus-visible { outline: 2px solid #77569c; outline-offset: 2px; }
+.voice-field-message { display: block; margin-top: 8px; font-size: 12px; font-weight: 400; line-height: 1.5; color: #65527d; overflow-wrap: anywhere; }
+.goods-form-fields .field > .voice-field { font-size: inherit; font-weight: inherit; }
+.goods-selected-row label > .voice-field { min-width: 115px; }
+.goods-form-fields .goods-selected-row .voice-field input { width: 100%; padding-right: 12px; }
+.voice-privacy-note { display: flex; align-items: center; gap: 6px; margin: 0; color: #5e6c82; font-size: 11px; line-height: 1.6; }
+.voice-privacy-note > svg { flex-shrink: 0; }
+.voice-panel .voice-text-editor { display: flex; align-items: flex-end; gap: 10px; min-width: 0; }
+.voice-panel .voice-text-editor > .field { flex: 1; min-width: 0; margin: 0; }
+.voice-panel .voice-text-editor textarea { min-height: 64px; padding: 10px 12px; }
+.voice-panel .voice-text-editor > button { flex: 0 0 auto; width: auto; min-height: 44px; padding: 10px 14px; margin: 0; }
+@media (max-width: 600px) {
+  .voice-panel .voice-text-editor { flex-wrap: wrap; }
+  .voice-panel .voice-text-editor > .field { flex-basis: 100%; }
+}
+.goods-workbench.goods-workbench-single { grid-template-columns: minmax(0, 1fr); }
+.request-page-nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
+.request-page-nav a { padding: 10px 16px; border: 1px solid #e3dcec; border-radius: 9px; color: #74568f; font-size: 13px; font-weight: 600; }
+.request-page-nav a[aria-current=page] { background: #efe8f7; border-color: #bfa6d8; }
+.request-count-summary { color: #647588; font-size: 12px; }
+.request-progress-item > div { flex-wrap: wrap; gap: 6px; }
+.camera-open { font: inherit; color: inherit; cursor: pointer; width: 100%; background: #faf9fd; }
+.camera-open:disabled { opacity: .55; cursor: default; }
+.camera-panel { margin: 14px 0; padding: 12px; border: 1px solid #ddd5e8; border-radius: 14px; background: #f8f6fc; }
+.camera-panel video { width: 100%; max-height: 380px; display: block; object-fit: contain; background: #20212b; border-radius: 9px; }
+.camera-panel .camera-mirror { transform: scaleX(-1); }
+.camera-panel p { font-size: 12px; color: #655d75; }
+.camera-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.camera-fallback { display: block; position: relative; width: fit-content; margin: 12px 0; font-size: 12px; text-decoration: underline; color: #715295; cursor: pointer; }
+.camera-fallback input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.photo-analysis { margin: 12px 0; padding: 12px 14px; border-radius: 10px; background: #f1f5fa; font-size: 13px; line-height: 1.6; }
+.photo-analysis.warning { background: #fff5e3; color: #7d5923; }
+.photo-analysis p { margin: 4px 0; }
+.photo-analysis button { margin-top: 8px; }
+.photo-analysis-help { font-size: 12px; line-height: 1.6; color: #69778a; }
+.delete-item-action { display: inline-flex; flex-direction: column; gap: 6px; }
+.delete-item-action > span[role=group] { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+.delete-item-action button { border: 1px solid #ead1d1; background: #fff; color: #9d4242; border-radius: 7px; padding: 7px 10px; cursor: pointer; font-size: 12px; }
+.delete-item-action [role=alert] { font-size: 12px; max-width: 280px; white-space: normal; color: #9d4242; }
+.exchange-table td:last-child > a { margin: 0 7px 7px 0; }
