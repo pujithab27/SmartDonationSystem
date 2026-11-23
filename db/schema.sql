@@ -1,4 +1,5 @@
--- Current application schema through migration 0007. Django migrations remain authoritative.
+-- Application schema through migration 0009. Generated from an empty migrated database.
+-- Reference only: install with Django migrations. No records are included.
 BEGIN;
 CREATE TABLE "donations_accountreview" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "action" varchar(12) NOT NULL, "reason" varchar(500) NOT NULL, "created_at" datetime NOT NULL, "account_id" bigint NOT NULL REFERENCES "donations_user" ("id") DEFERRABLE INITIALLY DEFERRED, "administrator_id" bigint NULL REFERENCES "donations_user" ("id") DEFERRABLE INITIALLY DEFERRED);
 
@@ -12,11 +13,11 @@ CREATE TABLE "donations_contactmessage" ("id" integer NOT NULL PRIMARY KEY AUTOI
 
 CREATE TABLE "donations_donation" ("id" varchar(40) NOT NULL PRIMARY KEY, "transaction_id" varchar(100) NOT NULL, "amount" decimal NOT NULL, "anonymous" bool NOT NULL, "message" varchar(500) NOT NULL, "created_at" datetime NOT NULL, "campaign_id" varchar(40) NOT NULL REFERENCES "donations_campaign" ("id") DEFERRABLE INITIALLY DEFERRED, "donor_id" bigint NOT NULL REFERENCES "donations_user" ("id") DEFERRABLE INITIALLY DEFERRED, CONSTRAINT "unique_donor_transaction" UNIQUE ("donor_id", "transaction_id"), CONSTRAINT "donation_valid_amount" CHECK (("amount" >= '1' AND "amount" <= '10000000')));
 
-CREATE TABLE "donations_donationmatch" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "quantity" decimal NOT NULL, "status" varchar(20) NOT NULL, "pickup_at" datetime NULL, "pickup_address" varchar(300) NOT NULL, "pickup_city" varchar(100) NOT NULL, "pickup_state" varchar(100) NOT NULL, "pickup_pincode" varchar(6) NOT NULL, "pickup_notes" varchar(1000) NOT NULL, "version" integer unsigned NOT NULL CHECK ("version" >= 0), "completed_at" datetime NULL, "created_at" datetime NOT NULL, "request_id" bigint NOT NULL REFERENCES "donations_itemrequest" ("id") DEFERRABLE INITIALLY DEFERRED, "donation_id" bigint NOT NULL REFERENCES "donations_itemdonation" ("id") DEFERRABLE INITIALLY DEFERRED, "delivery_note" varchar(1000) NOT NULL, "delivery_proof" text NOT NULL, CONSTRAINT "match_valid_quantity" CHECK (("quantity" > '0' AND "quantity" <= '1000000')));
+CREATE TABLE "donations_donationmatch" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "quantity" decimal NOT NULL, "status" varchar(20) NOT NULL, "pickup_at" datetime NULL, "pickup_address" varchar(300) NOT NULL, "pickup_city" varchar(100) NOT NULL, "pickup_state" varchar(100) NOT NULL, "pickup_pincode" varchar(6) NOT NULL, "pickup_notes" varchar(1000) NOT NULL, "version" integer unsigned NOT NULL CHECK ("version" >= 0), "completed_at" datetime NULL, "created_at" datetime NOT NULL, "request_id" bigint NOT NULL REFERENCES "donations_itemrequest" ("id") DEFERRABLE INITIALLY DEFERRED, "donation_id" bigint NOT NULL REFERENCES "donations_itemdonation" ("id") DEFERRABLE INITIALLY DEFERRED, "delivery_note" varchar(1000) NOT NULL, "delivery_proof" text NOT NULL, "receipt_check" text NOT NULL CHECK ((JSON_VALID("receipt_check") OR "receipt_check" IS NULL)), "receipt_check_digest" varchar(64) NOT NULL, CONSTRAINT "match_valid_quantity" CHECK (("quantity" > '0' AND "quantity" <= '1000000')));
 
 CREATE TABLE "donations_itemdonation" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "client_id" char(32) NOT NULL, "item_key" varchar(50) NOT NULL, "quantity" decimal NOT NULL, "city" varchar(100) NOT NULL, "notes" varchar(2000) NOT NULL, "image" text NOT NULL, "created_at" datetime NOT NULL, "donor_id" bigint NOT NULL REFERENCES "donations_user" ("id") DEFERRABLE INITIALLY DEFERRED, "address" varchar(300) NOT NULL, "pincode" varchar(6) NOT NULL, "state" varchar(100) NOT NULL, "version" integer unsigned NOT NULL CHECK ("version" >= 0), CONSTRAINT "unique_item_donation_submission" UNIQUE ("donor_id", "client_id"), CONSTRAINT "item_donation_valid_quantity" CHECK (("quantity" > '0' AND "quantity" <= '1000000')));
 
-CREATE TABLE "donations_itemrequest" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "title" varchar(120) NOT NULL, "delivery_address" varchar(300) NOT NULL, "delivery_city" varchar(100) NOT NULL, "delivery_state" varchar(100) NOT NULL, "delivery_pincode" varchar(6) NOT NULL, "notes" varchar(2000) NOT NULL, "needed_by" date NULL, "status" varchar(10) NOT NULL, "version" integer unsigned NOT NULL CHECK ("version" >= 0), "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "organization_id" bigint NOT NULL REFERENCES "donations_organization" ("id") DEFERRABLE INITIALLY DEFERRED, "priority" varchar(10) NOT NULL, "contact_phone" varchar(20) NOT NULL);
+CREATE TABLE "donations_itemrequest" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "title" varchar(120) NOT NULL, "delivery_address" varchar(300) NOT NULL, "delivery_city" varchar(100) NOT NULL, "delivery_state" varchar(100) NOT NULL, "delivery_pincode" varchar(6) NOT NULL, "notes" varchar(2000) NOT NULL, "needed_by" date NULL, "status" varchar(10) NOT NULL, "version" integer unsigned NOT NULL CHECK ("version" >= 0), "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "organization_id" bigint NOT NULL REFERENCES "donations_organization" ("id") DEFERRABLE INITIALLY DEFERRED, "priority" varchar(10) NOT NULL, "contact_phone" varchar(20) NOT NULL, "source_donation_id" bigint NULL REFERENCES "donations_itemdonation" ("id") DEFERRABLE INITIALLY DEFERRED, CONSTRAINT "unique_ngo_offer_interest" UNIQUE ("organization_id", "source_donation_id"));
 
 CREATE TABLE "donations_itemrequestline" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "item_key" varchar(50) NOT NULL, "quantity" decimal NOT NULL, "request_id" bigint NOT NULL REFERENCES "donations_itemrequest" ("id") DEFERRABLE INITIALLY DEFERRED, "fulfilled_quantity" decimal NOT NULL, CONSTRAINT "unique_item_per_request" UNIQUE ("request_id", "item_key"), CONSTRAINT "item_request_valid_quantity" CHECK (("quantity" > '0' AND "quantity" <= '1000000')), CONSTRAINT "item_request_valid_fulfilled" CHECK (("fulfilled_quantity" >= '0' AND "fulfilled_quantity" <= ("quantity"))));
 
@@ -58,6 +59,8 @@ CREATE INDEX "donations_itemdonation_donor_id_7953da53" ON "donations_itemdonati
 
 CREATE INDEX "donations_itemrequest_organization_id_f5d2ff38" ON "donations_itemrequest" ("organization_id");
 
+CREATE INDEX "donations_itemrequest_source_donation_id_a911b572" ON "donations_itemrequest" ("source_donation_id");
+
 CREATE INDEX "donations_itemrequestline_request_id_5a228d7a" ON "donations_itemrequestline" ("request_id");
 
 CREATE INDEX "donations_loginevent_user_id_4454cac7" ON "donations_loginevent" ("user_id");
@@ -87,4 +90,8 @@ CREATE INDEX "donations_user_user_permissions_permission_id_8b53b2f7" ON "donati
 CREATE INDEX "donations_user_user_permissions_user_id_c6701187" ON "donations_user_user_permissions" ("user_id");
 
 CREATE UNIQUE INDEX "donations_user_user_permissions_user_id_permission_id_220eab16_uniq" ON "donations_user_user_permissions" ("user_id", "permission_id");
+
+CREATE UNIQUE INDEX "unique_email_case_insensitive" ON "donations_user" ((LOWER("email")));
+
+CREATE UNIQUE INDEX "unique_live_donation_match" ON "donations_donationmatch" ("donation_id", "request_id") WHERE NOT ("status" = 'Cancelled');
 COMMIT;

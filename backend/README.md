@@ -1,156 +1,149 @@
-# Django REST API
+# Backend API
 
-## Photo recognition and item management (3 November 2026)
+Django REST Framework service for account review, item requests, donor offers, matching, pickup scheduling and receipt confirmation. See the [project README](../README.md) for installation.
 
-Set `GEMINI_API_KEY` and optionally `GEMINI_MODEL` in the backend environment or ignored `backend/.env` (see `.env.example`). The server calls Gemini; the browser never receives the key. `POST /api/item-donations/analyse-photo/` requires an approved donor session, CSRF, a validated image, and is limited to 12 calls per hour per user. The response contains an editable catalog item/category suggestion, a quantity when readable, or an unsupported/unclear/mixed warning. Weights and volumes require a readable package label; arbitrary model item names and invalid quantities are rejected. Provider failures leave manual entry available. Do not include `.env` in uploads or builds.
+## Service configuration
 
-Before an NGO confirms receipt, it can send the received-item photo to `POST /api/matches/<id>/check-receipt-photo/`. The endpoint compares it with the donor's photo when available and the matched catalog item, and returns match, mismatch or unclear for human review. It requires the NGO on that match, CSRF and a validated image; it shares the 12/hour photo-analysis limit. The NGO must review the photo and attest that it matches before the delivery can be completed. Receipt photos are stored only when the NGO confirms delivery.
+API base: `/api/`. The frontend proxies this path to Django. Local Django address: `http://127.0.0.1:8000`.
 
-Item donations require `address`, `city`, `state` and a six-digit `pincode`. Matches copy that address for pickup review. Donors may PATCH or DELETE their own unused item donations with the current `version`. NGOs may DELETE their own unused item requests with the current `version`; existing request editing remains available. Records with match/receipt history cannot be deleted, and matched donor offers cannot be rewritten. Close requests or cancel active matches using the existing actions. Run migrations 0006 and 0007 before serving the updated UI.
+| Variable | Purpose / configured default |
+| --- | --- |
+| `GEMINI_API_KEY` | Provider credential for photo analysis, receipt comparison and speech. |
+| `GEMINI_MODEL` | Photo model; `gemini-2.5-flash`. |
+| `GEMINI_SPEECH_MODEL` | Speech model; `gemini-3.1-flash-lite`. |
+| `DJANGO_DEBUG` | Local development mode; `true`. |
+| `DJANGO_SECRET_KEY` | Required when debug is disabled. Development creates an ignored local key file if omitted. |
+| `DJANGO_DB_PATH` | SQLite file; defaults to `db/db.sqlite3` under the project root. |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated allowed hosts; defaults to localhost and loopback addresses. |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | Comma-separated frontend origins; defaults to localhost and 127.0.0.1 on ports 3000 and 3001. |
+| `MAP_GEOCODER_URL` | Address search; defaults to Nominatim `/search`. |
+| `MAP_REVERSE_GEOCODER_URL` | Reverse lookup; defaults to Nominatim `/reverse`. |
+| `MAP_OVERPASS_URL` | Retained nearby-service endpoint provider; defaults to Overpass. |
 
-`scripts/check_photo_ai.py` tests Gemini directly with public site photos. With the servers running and fresh QA accounts prepared, `scripts/check_photo_api_live.py` tests the entire authenticated proxy/API/Gemini path. These are explicit live checks, not part of offline unit tests.
+Only the three Gemini variables are read from `backend/.env`. Process environment values take precedence. Set other variables in the process environment and restart Django after changes. Keep real keys out of version control.
 
-Provider references: [Gemini image understanding](https://ai.google.dev/gemini-api/docs/image-understanding) and [generateContent API](https://ai.google.dev/api/generate-content).
+## Authentication and authorization
 
-See [project setup](../README.md) for installation, server commands, and administrator creation.
+1. Fetch `GET auth/csrf/` and retain the cookie and returned CSRF token.
+2. Send `X-CSRFToken` with state-changing requests and include session cookies.
+3. Register with `POST auth/signup/`. New donor and NGO accounts require administrator approval.
+4. Sign in with `POST auth/login/` using `email`, `password` and `role` (`donor`, `ngo` or `admin`). Use the refreshed CSRF token returned after login.
+5. Sign out with `POST auth/logout/`.
 
-### Voice service connection troubleshooting
+The frontend also sends `X-Session-Scope`, a random selector for its browser tab. Django uses scoped session cookies so separate sign-ins can coexist in one browser. A selector without a valid session cookie grants no access. Account rejection or access revocation invalidates existing sessions.
 
-If voice or photo comparison reports a usage limit, check the project's [Gemini rate-limit dashboard](https://aistudio.google.com/rate-limit). On 4 November 2026, the configured project returned `GenerateRequestsPerDayPerProjectPerModel-FreeTier` with `quotaValue: 20`. This is an observed account quota, not a universal Gemini limit. Photo analysis and receipt comparison share the photo model quota. Speech uses Gemini 3.1 Flash Lite and its model quota. The app's separate 12/hour photo and 30/hour speech limits do not increase the provider allowance. Live QA calls also consume it.
+Ownership is derived from the authenticated account. Administrators can inspect delivery records but cannot schedule pickups or confirm receipt on behalf of participants. `GET state/` returns only data visible to the caller; image payloads are loaded through authorized detail endpoints.
 
-Provider quota errors return HTTP 429. Structured daily-quota failures show a daily-reset message; short rate limits show the provider's suggested wait. A validated retry delay is returned as `Retry-After`. Provider error bodies and credentials are never exposed. The app does not automatically retry exhausted requests or change billing. Manual typing remains available. Use mocked tests while the quota is exhausted.
+## Current endpoints
 
-Voice transcription uses `GEMINI_API_KEY` and `GEMINI_SPEECH_MODEL` (default `gemini-3.1-flash-lite`), read from the environment or ignored `backend/.env`. `GEMINI_MODEL` controls photo recognition separately. Restart the backend after changing these settings. Requests use the model-specific thinking configuration described in [Google's thinking configuration documentation](https://ai.google.dev/gemini-api/docs/generate-content/thinking).
+Paths below are relative to `/api/` and include trailing slashes.
 
-The running Django process needs outbound HTTPS access to `generativelanguage.googleapis.com` for voice and photo recognition. A backend started in a restricted agent sandbox may serve local API requests while all Gemini requests fail. In particular, `Speech provider connection failed: type=PermissionError errno=13 winerror=10013` indicates a blocked network connection. Stop that restricted backend and start it from a normal local terminal (from `backend`: `.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000`), or start it with approved network access. Do not disable the Windows firewall. Confirm through the frontend's `VOICE_TEST_FULL_API=1` test, which uses the actual running backend. The voice logs record failure type/status only, never keys, recordings or transcripts.
-
-The API accepts JSON. Field names match the existing UI (`firstName`, `ngoName`, `campaignId`, etc.). All responses disable caching. Money is stored as decimal values in the database.
-
-## Session authentication
-
-1. `GET /api/auth/csrf/` to receive a CSRF cookie and `csrfToken` in JSON.
-2. Include cookies and `X-CSRFToken: <token>` with every POST/PATCH.
-3. `POST /api/auth/signup/` creates a pending account without a login session. After approval, `POST /api/auth/login/` creates an HttpOnly session cookie and returns a rotated `csrfToken`.
-4. Use the rotated token for subsequent writes. The frontend handles this automatically.
-5. `POST /api/auth/logout/` invalidates the server session.
-
-The browser frontend includes `X-Session-Scope`, a random 32-character lowercase hexadecimal selector saved in that tab's `sessionStorage`, on every request. `SessionScopeMiddleware` selects `allofus_sessionid_<scope>` and `allofus_csrftoken_<scope>` before Django processes sessions and CSRF, and preserves cookie flags on the response. A new sign-in creates a fresh scope; selecting a scope alone grants no access without its valid session cookie. An unknown scope never inherits an unscoped or different scope's login. Invalid selectors return 400. Responses vary by cookie and scope and remain uncached.
-
-Requests without this header retain standard Django cookies for direct API clients and Django admin. The middleware does not change global settings per request. Account revocation and CSRF enforcement remain in place; logout is CSRF-protected and idempotent for an expired session. Frontend callers capture the session context before asynchronous work, and ignore stale state responses during account transitions.
-
-Login request:
-
-```json
-{"email":"your-email@example.com","password":"your password","role":"donor"}
-```
-
-Donor signup also requires `firstName`, `lastName`, `phone`, `address`, `city`, `state`, `pincode`, `confirmPassword`, and `agree: true`. NGO signup uses `ngoName`, `registrationNumber`, and `description` instead of the donor names; `website` is optional.
-
-## Routes
-
-| Method | `/api/` path | Access / purpose |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `health/` | Database connectivity check |
-| GET | `auth/csrf/` | CSRF initialization |
-| POST | `auth/signup/` | Donor/NGO registration |
-| POST | `auth/login/` | Email/password/role verification |
-| POST | `auth/logout/` | Revoke current session |
-| GET | `auth/me/` | Current user's safe profile |
-| GET | `state/` | Read-only snapshot filtered by current identity for the UI |
-| POST | `accounts/<id>/review/` | Admin; `{action, reason, version}`. Actions: Approved, Rejected, Activated, Deactivated. |
-| POST | `accounts/approve/` | Admin; `{accounts: [{id, version}]}`; atomically approve 1-50 selected pending accounts. |
-| GET, PATCH | `profile/` | Own profile; PATCH accepts the complete profile form |
-| PATCH | `preferences/` | Own workspace preferences |
-| GET | `ngos/` | Public verified NGOs; own NGO and all NGOs for admins |
-| POST | `ngos/<email>/review/` | Admin; `{status, reason}` |
-| GET, POST | `item-requests/` | Authenticated scoped list; approved, verified NGOs create item requests. |
-| PATCH | `item-requests/<id>/` | Owning NGO edits the complete request or changes Open/Closed status; requires current `version`. |
-| GET, POST | `campaigns/` | Scoped list; NGO creates Draft/Pending Approval campaigns |
-| GET | `campaigns/<id>/` | Public or owned campaign; admins see all |
-| POST | `campaigns/<id>/submit/` | Owning verified NGO submits draft/rejected campaign |
-| POST | `campaigns/<id>/review/` | Admin; `{status, reason}` |
-| POST | `campaigns/<id>/saved/` | Donor toggles a saved cause |
-| GET, POST | `donations/` | Scoped list; donor records an idempotent pledge |
-| GET | `donations/<id>/` | Donor's own receipt, receiving NGO, or admin |
-| POST | `contacts/` | Store a contact message; inbox is admin-only |
-| POST | `activities/<id>/resolve/` | Admin marks activity reviewed |
+| GET | `health/` | Service and database health. |
+| GET | `auth/csrf/`, `auth/me/` | CSRF initialization and current identity. |
+| POST | `auth/signup/`, `auth/login/`, `auth/logout/` | Account registration and sessions. |
+| GET | `state/` | Scoped workspace snapshot and item catalog. |
+| GET, PATCH | `profile/` | Own profile; PATCH uses the complete profile form. |
+| PATCH | `preferences/` | Own preferences. |
+| POST | `accounts/<id>/review/` | Administrator decision using `action`, `reason`, `version`. |
+| POST | `accounts/approve/` | Administrator bulk approval of selected pending accounts. |
+| GET | `ngos/` | Visible organization profiles. |
+| POST | `ngos/<email>/review/` | Administrator organization review. |
+| GET, POST | `item-requests/` | Scoped request list; verified NGOs create requests. |
+| PATCH, DELETE | `item-requests/<id>/` | Owner updates or deletes an eligible request using its version. |
+| POST | `item-donations/` | Approved donor creates an item offer. |
+| GET, PATCH, DELETE | `item-donations/<id>/` | Authorized detail access; owner edits or deletes eligible offers. |
+| GET | `item-donations/available/` | Verified NGO discovers unallocated offers. |
+| POST | `item-donations/<id>/interest/` | NGO expresses interest using `quantity` or an existing `requestId`. |
+| GET | `item-donations/<id>/candidates/` | Donor views eligible requests for their offer. |
+| POST | `item-donations/analyse-photo/` | Donor photo recognition using `image`. |
+| POST | `matches/` | Donor reserves an offer against an NGO request. |
+| GET, PATCH | `matches/<id>/` | Authorized delivery details or participant action. |
+| POST | `matches/<id>/check-receipt-photo/` | Compare `deliveryProof` with the matched item and donor photo when present. |
+| POST | `notifications/read/` | Mark an owned notification read using `id`, or all own notifications with `{}`. |
+| POST | `speech/transcribe/` | Authenticated voice transcription using `audio` and `mode`. |
+| GET | `places/suggest/?q=...` | Locality suggestions from Open-Meteo. |
+| GET | `places/search/?q=...` | Submitted address search. |
+| GET | `places/reverse/?lat=...&lon=...` | Reverse geocoding. |
+| POST | `contacts/` | Submit a contact message. |
+| POST | `activities/<id>/resolve/` | Administrator marks an activity reviewed. |
 
-Invalid fields return 400, incorrect credentials return 401, forbidden/CSRF failures return 403, inaccessible objects return 404, stale account reviews/item request edits and reused donation references with different data return 409, and throttled requests return 429.
+Full route definitions: [donations/urls.py](donations/urls.py).
 
-## Item requests
+## Request and offer payloads
 
-`GET state/` includes `data.itemCatalog` (50 canonical items with `id`, `name`, `category`, `unit`) and `data.itemRequests`. NGOs see their own requests, approved donors see open requests from approved active NGOs, and admins see all. Anonymous visitors receive an empty request list.
-
-Create an item request with `POST item-requests/`:
+Example NGO request:
 
 ```json
 {
-  "title": "Community kitchen essentials",
-  "items": [{"itemId": "rice", "quantity": 25.5}, {"itemId": "utensils", "quantity": 10}],
+  "title": "Kitchen essentials",
+  "items": [{"itemId": "rice", "quantity": 25}],
   "deliveryAddress": "12 Community Road",
   "deliveryCity": "Hyderabad",
-  "contactPhone": "+919876543210",
-  "priority": "High",
   "deliveryState": "Telangana",
   "deliveryPincode": "500001",
-  "notes": "Deliver between 10 am and 4 pm.",
-  "neededBy": null
+  "contactPhone": "+919876543210",
+  "priority": "High",
+  "neededBy": null,
+  "notes": "Call before collection."
 }
 ```
 
-The server sets ownership and units. All request items and the receiving address save in one transaction. Empty, duplicate, unknown, or more than 50 items are rejected. Quantities must be positive and at most 1,000,000; kg/litre support two decimal places and other units require whole numbers. A new needed-by date cannot be in the past.
+Item IDs and units come from `state/`'s `data.itemCatalog`. New quantities are whole numbers from 1 to 1,000,000 for every unit. Request item IDs must be unique. The server assigns ownership; callers cannot supply another account as the owner.
 
-For editing, PATCH the complete form plus the current `version`. To close/reopen, PATCH only `{"status":"Closed","version":0}` or `{"status":"Open","version":1}` using the version actually returned by the API. Each successful update increments the version. Closing preserves the record but hides it from donors. Apply migration `0003_item_requests` before starting the updated server.
+A donor offer uses `clientId` (UUID), `itemId`, `quantity`, `address`, `city`, `state` and `pincode`, with optional `notes` and `image`. Identical retries using the same donor and `clientId` return the existing offer; conflicting retries are rejected.
 
-## Storage and authorization
+For quantity-only NGO interest, the server copies the NGO's saved address and phone into a request tied to the source donation. An existing interest returns its request ID instead of creating a duplicate. This action notifies the donor but does not reserve stock. Supplying an existing `requestId` instead remains supported; do not send both fields.
 
-The server determines ownership from `request.user`; callers cannot set another user's email as an owner or set privileged account flags. Password hashes and session keys never appear in API responses. The `state/` endpoint is not a writable database dump: public callers see no users, donations, messages, or activity. Signed-in callers see only their permitted records.
+Request edits and donor-offer edits require the current `version`. Closing a request uses `{"status":"Closed","version":<current version>}`. Deletion also requires the current version and is restricted to records without protected history.
 
-Campaign images are validated JPG/PNG/WebP data URLs up to 700 KB. Supporting PDF/JPG/PNG documents are limited to 700 KB and stored in a separate database table; only the owner/admin receives their contents. Image payloads are decoded and checked with Pillow, including a pixel limit. PDF headers are checked; this is not antivirus or independent document verification. Use sample documents in this educational deployment.
+## Matching and delivery states
 
-Sample funding balances and pledges are distinct concepts. `Campaign.raised` includes its illustrative opening balance plus accepted pledges. The Django admin is a trusted maintenance tool; use the frontend/API workflow for normal campaign approvals and pledge creation so workflow validation and totals remain consistent.
+`POST matches/` takes `donationId`, `requestId` and `quantity`. The server checks ownership, eligibility, item compatibility and available capacity before reserving both sides atomically.
 
-`LoginEvent` records outcomes, not submitted passwords. Django's `django_session` table stores the session lifecycle. `User.last_login` records the most recent successful sign-in. Credential verification does not verify ownership of an email inbox.
-
-## References
-
-- [DRF session authentication and CSRF](https://www.django-rest-framework.org/api-guide/authentication/#sessionauthentication)
-- [Django custom users and password handling](https://docs.djangoproject.com/en/5.2/topics/auth/customizing/)
-
-Account approval and access changes are recorded in `AccountReview`. `User.access_version` is included in the session authentication hash so reactivation cannot restore an old cookie. Rejected accounts disclose their review note only after correct credential and role verification. Admin state includes recent account decisions; public and non-admin state contains no account review history.
-
-
-## Item-donation workflow
-
-Migrations 0004 and 0005 add item offers, quantity reservations, delivery proof, tracking events, and notifications. Existing requests retain their quantities; request phones are populated from the NGO profile where available. New and edited request forms require a valid `contactPhone`.
-
-| Method | `/api/` path | Purpose |
+| Stored status | Meaning | Next action |
 | --- | --- | --- |
-| POST | `item-donations/` | Approved donor; `{clientId, itemId, quantity, city, notes?, image?}`. UUID `clientId` makes identical retries idempotent. |
-| GET | `item-donations/<id>/` | Donor or matched NGO; item details and original photo. |
-| GET | `item-donations/<id>/candidates/` | Owning donor; exact catalog item matches, same city first, then priority and needed date. Closed/expired/full requests are excluded. |
-| POST | `matches/` | Owning donor; `{donationId, requestId, quantity}` reserves both offer and request capacity atomically. |
-| GET | `matches/<id>/` | Participating donor/NGO only; contacts, original photo, delivery proof, pickup and tracking events. |
-| PATCH | `matches/<id>/` | Current `version` plus an action described below. |
-| POST | `notifications/read/` | `{id}` marks an owned notification read; `{}` marks all own notifications read. |
-| GET | `places/search/?q=...` | Authenticated, cached, rate-limited place search triggered by a user. |
-| GET | `places/nearby/?lat=...&lon=...` | Authenticated, validated coordinates; hospitals, clinics and pharmacies within 5 km (up to 120). |
+| `Pending` | Donor accepted; quantity reserved. | Donor schedules pickup. |
+| `Pickup scheduled` | Collection details saved. | NGO receives items and verifies proof. |
+| `Completed` | NGO confirmed receipt. | Read-only delivery history. |
+| `Cancelled` | Reservation released. | Read-only cancellation history. |
 
-Match actions:
+`PATCH matches/<id>/` requires the current `version` and one action:
 
-- `schedule`: donor supplies future `pickupAt` (ISO timestamp with timezone), `pickupAddress`, `pickupCity`, `pickupState`, `pickupPincode`, and optional `pickupNotes`.
-- `confirm`: receiving NGO supplies `deliveryProof` (validated JPG/PNG/WebP data URL, max 700 KB) and optional `deliveryNote`. Requires a scheduled pickup. The same transaction updates received quantities, marks completion, records the event, and notifies both participants.
-- `cancel`: either participant may release a pending/scheduled reservation. Completed matches cannot be cancelled or confirmed again.
+- `schedule`: donor supplies future `pickupAt` with timezone, `pickupAddress`, `pickupCity`, `pickupState`, `pickupPincode` and optional `pickupNotes`.
+- `confirm`: receiving NGO supplies `deliveryProof`, `itemMatchConfirmed: true` and optional `deliveryNote`. A scheduled pickup and successful comparison for the exact proof are required.
+- `cancel`: either participant releases a pending or scheduled reservation. Completed deliveries cannot be cancelled.
 
-The state snapshot exposes `itemDonations`, `matches`, `notifications`, and `unreadNotifications`, scoped by user. Images are returned by authorized detail endpoints instead of being embedded in the polling snapshot. Request lines expose `fulfilled`, `reserved`, and `remaining` quantities. Edits cannot remove items or reduce quantities below reserved plus received amounts.
+Receipt confirmation updates fulfilled quantities, appends a tracking event and notifies both participants in one transaction. Request lines expose `fulfilled`, `reserved` and `remaining`. Edits cannot reduce quantities below received plus reserved amounts.
 
-Maps use `MAP_GEOCODER_URL` and `MAP_OVERPASS_URL` from environment settings. Defaults are Nominatim and Overpass. The default cache and geocoding limiter are suitable for local, single-process use; configure a shared cache/global limiter or a hosted provider before using multiple production workers. Search requires a deliberate submit; no autocomplete or background geocoding. See the [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) and [tile policy](https://operations.osmfoundation.org/policies/tiles/).
+## AI and map integrations
 
-The donation pickup picker also uses `MAP_REVERSE_GEOCODER_URL` (default `https://nominatim.openstreetmap.org/reverse`). Search and reverse lookups share the same provider limiter and cache. Public Nominatim permits at most one request per second across the application, requires attribution and identifying requests, and prohibits autocomplete. The picker submits explicit searches and coalesces user pin adjustments; deploy a shared global limiter or another configured provider for multiple workers. Reverse coordinates are validated; missing mapped city/state/PIN values remain blank for manual completion. Confirming copies address fields into the unsaved donation form; coordinates are displayed for review but are not persisted as donation coordinates.
+Receipt comparison returns `match`, `mismatch` or `unclear`. Only a saved `match` result for the current proof permits completion. Replacing the photo requires a new check. Missing provider access or quota leaves the delivery scheduled for a later retry. The comparison assesses item type, not delivered quantity or physical condition.
 
+Voice uses short recordings of up to 20 seconds. `mode` is `dictation` or `donation`; the latter returns structured donation fields. Audio is sent to Gemini and is not persisted by the application. Manual input remains available if transcription fails.
 
-### Receipt photo verification
+Address suggestions use Open-Meteo locality search; explicit address searches and reverse lookups use the configured geocoder. Map responses are cached and rate-limited. Production deployments need provider capacity and shared cache/rate-limit controls appropriate to their worker count.
 
-Run migrations through 0008. New receipt confirmations require a saved `match` comparison for the exact uploaded proof, donor reference, and catalog item. Mismatched, unclear, unchecked, or replaced photos cannot mark a delivery completed. Provider outages leave the delivery scheduled so the NGO can retry. Checks are reused for unchanged photos.
+## Errors and troubleshooting
 
-Both participants can check the saved proof on a completed delivery. The comparison and warning persist in `receiptCheck`; historical status and fulfilled quantities remain unchanged. Existing completed records without a check display as unchecked. Photo comparison identifies item type, not quantity or condition, and is not a guarantee of physical delivery.
+| Response / symptom | Check |
+| --- | --- |
+| 400 | Required fields, whole-number quantities, request eligibility and current delivery state. |
+| 401 or login rejected | Email, password, selected role and account approval. |
+| 403 | Session/CSRF state and role or ownership restrictions. |
+| 404 | Resource existence and visibility for the signed-in account. |
+| 409 | Stale version or conflicting idempotency reference; refresh before retrying. |
+| 429 | Application or provider rate limit; respect any retry information. |
+| 503 / AI unavailable | Provider key, configured model, quota and outbound HTTPS connectivity. |
+| Frontend cannot reach API | Confirm Django is running and `DJANGO_API_ORIGIN` is correct. |
+
+Uploads are validated server-side. JPEG, PNG and WebP item/receipt photos are limited to 700 KB. The proxy and Django also impose request-body limits.
+
+## Compatibility and deployment
+
+Campaign, pledge, saved-campaign and nearby-service endpoints remain for compatibility, but their pages are outside the current item-donation workflow. `donations/` refers to retained pledge records; physical item offers use `item-donations/`. No payment processor is connected.
+
+For public deployment, disable debug, set a private secret and explicit hosts/origins, use HTTPS and production application hosting, and establish database backups and shared throttling. Email verification and password recovery are not implemented. Application photo checks do not establish independent organization or delivery verification.
+
+Run `manage.py migrate` to apply all migrations before serving an updated checkout. Validate with `manage.py check` and `manage.py test donations --noinput` from the backend environment.
