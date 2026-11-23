@@ -1,4 +1,4 @@
-# Smart Donation System — Milestone 2
+# Smart Donation System 
 
 The existing Next.js UI now uses a Django REST Framework backend and a SQLite database. Donor/NGO signup, login, profiles, item requests, campaigns, reviews, pledges, saved causes, preferences, and contact messages persist on the server.
 ## Teammate setup (Windows)
